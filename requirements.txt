@@ -1,0 +1,5 @@
+sqlalchemy
+sanic
+sanic-ext
+pymysql
+psycopg2-binary
