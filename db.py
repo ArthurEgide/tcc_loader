@@ -85,14 +85,27 @@ def insert_deck_cards_data(data):
       card_id = card.get("card_id")
       quantidade = card.get("quantidade")
       
-      print(f"Deck_id: {deck_id}")
       columns = [ deck_id, card_id, quantidade ]
-      print(f"Columns: {columns}")
       
       row = ",".join([ check_apostrophe(valor) for valor in columns ])
-      print(f"Row: {row}")
       statement = text(f"INSERT INTO public.deck_cards(deck_id, card_id, quantidade) VALUES({row})")
       conn.execute(statement)
   
+  conn.commit()
+  conn.close()
+
+def insert_performance_step(data):
+  conn = get_conn()
+  execucao = data.get("execucao")
+  horario = data.get("horario")
+  acao = data.get("acao")
+  tabela = data.get("tabela")
+  quantidade = data.get("quantidade")
+  id = data.get("id")
+  
+  columns = [ execucao, horario, acao, tabela, quantidade, id ]
+  row = ",".join([ check_apostrophe(valor) for valor in columns ])
+  statement = text(f"INSERT INTO public.steps( execucao, horario, acao, tabela, quantidade, id ) VALUES({row})")
+  conn.execute(statement)
   conn.commit()
   conn.close()
