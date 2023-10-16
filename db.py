@@ -26,32 +26,32 @@ def get_conn():
   return connection
 
 def insert_cards_data(data):
-  conn = get_conn()
-  card_ids = {
-    'min': 0,
-    'max': 0
-  }
-  for d in data:
-    nome = d.get("nome")
-    tipo = d.get("tipo")
-    custo_mana = d.get("custo_mana")
-    descricao = d.get("descricao")
-    poder = d.get("poder")
-    resistencia = d.get("resistencia")
-    raridade = d.get("raridade")
+    conn = get_conn()
+    card_ids = {
+        'min': 0,
+        'max': 0
+    }
 
-    columns = [ nome, tipo, custo_mana, descricao, poder, resistencia, raridade ]
+    # Preparar a declaração SQL com placeholders
 
-    row = ",".join([ check_apostrophe(valor) if type(valor) == str else str(valor) for valor in columns ])
-    statement = text(f"INSERT INTO public.cards(nome, tipo, custo_mana, descricao, poder, resistencia, raridade) VALUES({row}) returning card_id")
-    x = conn.execute(statement)
-  
-  card_ids['max'] = x.fetchone()[0]
-  card_ids['min'] = card_ids['max'] - len(data)
-  
-  conn.commit()
-  conn.close()
-  return card_ids
+    insert_statement = text("""
+        INSERT INTO public.cards(nome, tipo, custo_mana, descricao, poder, resistencia, raridade)
+        VALUES (:nome, :tipo, :custo_mana, :descricao, :poder, :resistencia, :raridade)
+        RETURNING card_id
+    """)
+
+    batch_size = 1000
+    data_batches = [data[i:i+batch_size] for i in range(0, len(data), batch_size)]
+
+    for batch in data_batches:
+      conn.execute(insert_statement, batch)
+
+    card_ids['max'] = conn.execute(text("SELECT MAX(card_id) FROM public.cards")).scalar()
+    card_ids['min'] = card_ids['max'] - len(data)
+
+    conn.commit()
+    conn.close()
+    return card_ids
 
 def insert_decks_data(data):
   deck_ids = {
