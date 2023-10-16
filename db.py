@@ -3,6 +3,9 @@ from sqlalchemy import create_engine, URL, text
 from sqlalchemy import *
 import pymysql
 
+MAX_SIZE = 5000
+BATCH_SIZE = 500
+
 def check_apostrophe(s):
   try:
     int(s)
@@ -33,15 +36,13 @@ def insert_cards_data(data):
     }
 
     # Preparar a declaração SQL com placeholders
-
     insert_statement = text("""
         INSERT INTO public.cards(nome, tipo, custo_mana, descricao, poder, resistencia, raridade)
         VALUES (:nome, :tipo, :custo_mana, :descricao, :poder, :resistencia, :raridade)
-        RETURNING card_id
     """)
-
-    batch_size = 1000
-    data_batches = [data[i:i+batch_size] for i in range(0, len(data), batch_size)]
+    
+    data = data[:MAX_SIZE]
+    data_batches = [data[i:i+BATCH_SIZE] for i in range(0, len(data), BATCH_SIZE)]
 
     for batch in data_batches:
       conn.execute(insert_statement, batch)
@@ -58,54 +59,45 @@ def insert_decks_data(data):
     'min': 0,
     'max': 0
   }
+  data = data[:MAX_SIZE]
+  data_batches = [data[i:i+BATCH_SIZE] for i in range(0, len(data), BATCH_SIZE)]
   conn = get_conn()
-  for d in data:
-    nome = d.get("nome")
-    descricao = d.get("descricao")
-    formato = d.get("formato")
-    numero_cartas = d.get("numero_cartas")
 
-    columns = [ nome, descricao, formato, numero_cartas ]
-    
-    row = ",".join([ check_apostrophe(valor) if type(valor) == str else str(valor) for valor in columns ])
-    statement = text(f"INSERT INTO public.decks(nome, descricao, formato, numero_cartas) VALUES({row}) returning deck_id")
-    x = conn.execute(statement)
+  insert_statement = text("""
+        INSERT INTO public.decks(nome, descricao, formato, numero_cartas)
+        VALUES (:nome, :descricao, :formato, :numero_cartas)
+    """)
+
+  for batch in data_batches:
+    conn.execute(insert_statement, batch)
   
-  deck_ids['max'] = x.fetchone()[0]
+  deck_ids['max'] = conn.execute(text("SELECT MAX(deck_id) FROM public.decks")).scalar()
   deck_ids['min'] = deck_ids['max'] - len(data)
+  
   conn.commit()
   conn.close()
   return deck_ids
     
 def insert_deck_cards_data(data):
-  conn = get_conn()
-  for deck in data:
-    for card in deck:
-      deck_id = card.get("deck_id")
-      card_id = card.get("card_id")
-      quantidade = card.get("quantidade")
-      
-      columns = [ deck_id, card_id, quantidade ]
-      
-      row = ",".join([ check_apostrophe(valor) for valor in columns ])
-      statement = text(f"INSERT INTO public.deck_cards(deck_id, card_id, quantidade) VALUES({row})")
-      conn.execute(statement)
-  
-  conn.commit()
-  conn.close()
+  try:
+    conn = get_conn()
+    insert_statement = text("""
+        INSERT INTO public.deck_cards(deck_id, card_id, quantidade)
+        VALUES (:deck_id, :card_id, :quantidade)
+    """)
+    # Deck size is 60 cards
+    max_decks = MAX_SIZE // 60
+    for deck in data[:max_decks]:
+      conn.execute(insert_statement, deck)
+    
+    conn.commit()
+    conn.close()
+  except Exception as e:
+    print(e)
 
 def insert_performance_step(data):
   conn = get_conn()
-  execucao = data.get("execucao")
-  horario = data.get("horario")
-  acao = data.get("acao")
-  tabela = data.get("tabela")
-  quantidade = data.get("quantidade")
-  id = data.get("id")
-  
-  columns = [ execucao, horario, acao, tabela, quantidade, id ]
-  row = ",".join([ check_apostrophe(valor) for valor in columns ])
-  statement = text(f"INSERT INTO public.steps( execucao, horario, acao, tabela, quantidade, id ) VALUES({row})")
-  conn.execute(statement)
+  insert_statement = text(f"INSERT INTO public.steps( execucao, horario, acao, tabela, quantidade, id ) VALUES(:execucao, :horario, :acao, :tabela, :quantidade, :id)")
+  conn.execute(insert_statement, data)
   conn.commit()
   conn.close()
