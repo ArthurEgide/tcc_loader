@@ -1,6 +1,8 @@
 from sanic import Sanic
 from sanic.response import json
 from db import insert_cards_data, insert_decks_data, insert_deck_cards_data, insert_performance_step
+from urllib.parse import parse_qs
+import json as j
 
 app = Sanic("ArthurEgideTCC_PythonLoader")
 
@@ -17,9 +19,19 @@ async def register_step(request):
 
 @app.post("/create_cards")
 async def create_cards(request):
-    body = request.json
-    r = insert_cards_data(body)
+  try:
+    if(type(request.body) == bytes):
+      try:
+        body = request.body.decode('UTF-8')
+      except UnicodeDecodeError as e:
+          body = request.body.decode('latin1')
+      data = j.loads(body)
+    else:
+      data = request.json
+    r = insert_cards_data(data)
     return json(r)
+  except Exception as e:
+    print(e)
 
 @app.post("/create_decks")
 async def create_decks(request):
