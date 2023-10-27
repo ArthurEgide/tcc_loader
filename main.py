@@ -35,9 +35,16 @@ async def create_cards(request):
 
 @app.post("/create_decks")
 async def create_decks(request):
-    body = request.json
-    r = insert_decks_data(body)
-    return json(r)
+  if(type(request.body) == bytes):
+    try:
+      body = request.body.decode('UTF-8')
+    except UnicodeDecodeError as e:
+        body = request.body.decode('latin1')
+    data = j.loads(body)
+  else:
+    data = request.json
+  r = insert_decks_data(data)
+  return json(r)
 
 @app.post("/create_deck_cards")
 async def create_deck_cards(request):
